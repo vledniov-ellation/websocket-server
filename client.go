@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"log"
 )
 
 const pingPeriod = 10 * time.Second

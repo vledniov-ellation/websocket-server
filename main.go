@@ -2,11 +2,11 @@ package main
 
 import (
 	"flag"
-	"net/http"
-
 	"log"
-	"github.com/gorilla/mux"
+	"net/http"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 var addr = flag.String("addr", ":8080", "server address")
