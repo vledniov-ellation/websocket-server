@@ -35,7 +35,7 @@ type Client struct {
 
 func (c *Client) readPipe() {
 	defer func() {
-		c.hub.disconnect <-c
+		c.Close()
 	}()
 
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
@@ -61,7 +61,7 @@ func (c *Client) writePipe() {
 	// and the ticker failed to do his job
 	defer func() {
 		ticker.Stop()
-		c.conn.Close()
+		c.Close()
 	}()
 	for {
 		select {
@@ -69,7 +69,7 @@ func (c *Client) writePipe() {
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				c.conn.WriteMessage(websocket.CloseMessage, nil)
-				log.Print("Could not read from sending channel")
+				log.Print("Client sending channel was closed")
 				return
 			}
 
@@ -82,7 +82,11 @@ func (c *Client) writePipe() {
 			// Send the rest of the queued messages to client
 			messages := len(c.send)
 			for i := 0; i < messages; i++ {
-				c.conn.WriteMessage(websocket.TextMessage, serializeMessage(<-c.send))
+				err = c.conn.WriteMessage(websocket.TextMessage, serializeMessage(<-c.send))
+				if err != nil {
+					log.Print("Writing broadcast messages failed: "+err.Error())
+					return
+				}
 			}
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
@@ -91,6 +95,11 @@ func (c *Client) writePipe() {
 			}
 		}
 	}
+}
+
+func (c *Client) Close() {
+	c.conn.Close()
+	c.hub.disconnect <- c
 }
 
 func serializeMessage(message string) []byte {
