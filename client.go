@@ -9,7 +9,16 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const pingPeriod = 10 * time.Second
+const (
+	// Time allowed to write a message to the peer.
+	writeWait = 10 * time.Second
+
+	// Time allowed to read next pong message from peer.
+	pongWait = 10 * time.Second
+
+	// Sends ping to peer in this interval. Must be less than pongWait.
+	pingPeriod = (pongWait * 9) / 10
+)
 
 var upgrader = websocket.Upgrader{
 	HandshakeTimeout: 8 * time.Second,
@@ -28,6 +37,10 @@ func (c *Client) readPipe() {
 	defer func() {
 		c.hub.disconnect <-c
 	}()
+
+	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
@@ -49,11 +62,11 @@ func (c *Client) writePipe() {
 	defer func() {
 		ticker.Stop()
 		c.conn.Close()
-		c.hub.disconnect <-c
 	}()
 	for {
 		select {
 		case message, ok := <-c.send:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				c.conn.WriteMessage(websocket.CloseMessage, nil)
 				log.Print("Could not read from sending channel")
@@ -72,6 +85,7 @@ func (c *Client) writePipe() {
 				c.conn.WriteMessage(websocket.TextMessage, serializeMessage(<-c.send))
 			}
 		case <-ticker.C:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
