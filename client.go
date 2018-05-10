@@ -49,6 +49,7 @@ func (c *Client) writePipe() {
 	defer func() {
 		ticker.Stop()
 		c.conn.Close()
+		c.hub.disconnect <-c
 	}()
 	for {
 		select {
