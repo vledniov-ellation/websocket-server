@@ -1,5 +1,10 @@
 package main
 
+import (
+	"time"
+	"log"
+)
+
 type Hub struct {
 	clients    map[*Client]bool
 	broadcast  chan string
@@ -17,6 +22,8 @@ func newHub() *Hub {
 }
 
 func (h *Hub) run() {
+	go h.Tick()
+
 	for {
 		select {
 		case client := <-h.register:
@@ -28,8 +35,19 @@ func (h *Hub) run() {
 			}
 		case message := <-h.broadcast:
 			for client := range h.clients {
-				client.send <-message
+				client.send <- message
 			}
+		}
+	}
+}
+
+func (h *Hub) Tick() {
+	ticker := time.NewTicker(5 * time.Second)
+
+	for {
+		select {
+		case <-ticker.C:
+			log.Print("CURRENTLY CONNECTED CLIENTS: ", len(h.clients))
 		}
 	}
 }
