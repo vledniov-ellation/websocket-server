@@ -18,6 +18,9 @@ const (
 
 	// Sends ping to peer in this interval. Must be less than pongWait.
 	pingPeriod = (pongWait * 9) / 10
+
+	// Number of messages that are allowed to be sent at the same time via a sending channel
+	messagesCount = 256
 )
 
 var upgrader = websocket.Upgrader{
@@ -47,6 +50,7 @@ func (c *Client) readPipe() {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseAbnormalClosure, websocket.CloseGoingAway) {
 				log.Print("Client closed connection: "+ err.Error())
 			}
+			log.Print("Client closed connection: "+ err.Error())
 			break
 		}
 		var incoming Message
@@ -121,7 +125,7 @@ func handleWS(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		log.Print("Error upgrading to websocket "+ err.Error())
 		return
 	}
-	client := &Client{hub: hub, conn: conn, send: make(chan string)}
+	client := &Client{hub: hub, conn: conn, send: make(chan string, messagesCount)}
 	hub.register <-client
 
 	// Client should start reading and writing
