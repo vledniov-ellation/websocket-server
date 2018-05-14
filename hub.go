@@ -4,6 +4,7 @@ import (
 	"time"
 	"log"
 	"sync"
+	"fmt"
 )
 
 const broadcastDuration = 10 * time.Second
@@ -70,19 +71,15 @@ func (h *Hub) Broadcast() {
 			broadcastMutex.Unlock()
 		case <-ticker.C:
 			broadcastMutex.Lock()
-			messagesBuffer := append([]string{}, messagesToBroadcast...)
+			message := fmt.Sprintf("NUMBER OF MESSAGES BROADCASTED AS ONE: %d", len(messagesToBroadcast))
 			messagesToBroadcast = messagesToBroadcast[:0]
 			broadcastMutex.Unlock()
 
-			if len(messagesBuffer) > 0 {
-				h.mux.Lock()
-				for _, message := range messagesBuffer {
-					for client := range h.clients {
-						client.send <- message
-					}
-				}
-				h.mux.Unlock()
+			h.mux.Lock()
+			for client := range h.clients {
+				client.send <- message
 			}
+			h.mux.Unlock()
 		}
 	}
 }
