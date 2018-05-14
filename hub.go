@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-const broadcastDuration = 5 * time.Second
+const broadcastDuration = 10 * time.Second
 
 type Hub struct {
 	clients    map[*Client]bool
@@ -36,12 +36,12 @@ func (h *Hub) run() {
 			h.clients[client] = true
 		case client := <-h.disconnect:
 			log.Println("TRYING TO DISCONNECT CLIENT ", client.ID)
+			h.mux.Lock()
 			if _, ok := h.clients[client]; ok {
-				h.mux.Lock()
 				delete(h.clients, client)
 				close(client.send)
-				h.mux.Unlock()
 			}
+			h.mux.Unlock()
 		}
 	}
 }
@@ -74,13 +74,15 @@ func (h *Hub) Broadcast() {
 			messagesToBroadcast = messagesToBroadcast[:0]
 			broadcastMutex.Unlock()
 
-			h.mux.Lock()
-			for _, message := range messagesBuffer {
-				for client := range h.clients {
-					client.send <- message
+			if len(messagesBuffer) > 0 {
+				h.mux.Lock()
+				for _, message := range messagesBuffer {
+					for client := range h.clients {
+						client.send <- message
+					}
 				}
+				h.mux.Unlock()
 			}
-			h.mux.Unlock()
 		}
 	}
 }
