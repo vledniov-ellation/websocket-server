@@ -20,7 +20,7 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 
 	// Number of messages that are allowed to be sent at the same time via a sending channel
-	messagesCount = 256
+	messagesCount = 1000
 )
 
 var upgrader = websocket.Upgrader{
@@ -34,6 +34,7 @@ type Client struct {
 	hub  *Hub
 	conn *websocket.Conn
 	send chan string
+	ID   int
 }
 
 func (c *Client) readPipe() {
@@ -55,6 +56,7 @@ func (c *Client) readPipe() {
 		}
 		var incoming Message
 		json.Unmarshal(message, &incoming)
+		c.ID = incoming.ClientID
 		c.hub.broadcast <- incoming.Body
 	}
 }
@@ -84,17 +86,17 @@ func (c *Client) writePipe() {
 			}
 
 			// Send the rest of the queued messages to client
-			messages := len(c.send)
-			for i := 0; i < messages; i++ {
-				err = c.conn.WriteMessage(websocket.TextMessage, serializeMessage(<-c.send))
-				if err != nil {
-					log.Print("Writing broadcast messages failed: "+err.Error())
-					return
-				}
-			}
+			// TODO: use a buffered channel for c.send for using this part of broadcasting code
+			//messages := len(c.send)
+			//for i := 0; i < messages; i++ {
+			//	err = c.conn.WriteMessage(websocket.TextMessage, serializeMessage(<-c.send))
+			//	if err != nil {
+			//		log.Print("Writing broadcast messages failed: "+err.Error())
+			//		return
+			//	}
+			//}
 		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			if err := c.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(writeWait)); err != nil {
 				return
 			}
 		}
