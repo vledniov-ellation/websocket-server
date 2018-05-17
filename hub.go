@@ -11,7 +11,7 @@ const broadcastDuration = 10 * time.Second
 
 type Hub struct {
 	clients    map[*Client]bool
-	broadcast  chan string
+	broadcast  chan *Message
 	register   chan *Client
 	disconnect chan *Client
 	mux 	   sync.Mutex
@@ -20,7 +20,7 @@ type Hub struct {
 func newHub() *Hub {
 	return &Hub{
 		clients: make(map[*Client]bool),
-		broadcast: make(chan string),
+		broadcast: make(chan *Message),
 		register: make(chan *Client),
 		disconnect: make(chan *Client),
 	}
@@ -61,25 +61,46 @@ func (h *Hub) Tick() {
 func (h *Hub) Broadcast() {
 	broadcastMutex := &sync.Mutex{}
 	ticker := time.NewTicker(broadcastDuration)
-	var messagesToBroadcast []string
+	var messagesToBroadcast []Message
 
 	for {
 		select {
 		case message := <-h.broadcast:
 			broadcastMutex.Lock()
-			messagesToBroadcast = append(messagesToBroadcast, message)
+			messagesToBroadcast = append(messagesToBroadcast, *message)
 			broadcastMutex.Unlock()
 		case <-ticker.C:
 			broadcastMutex.Lock()
-			message := fmt.Sprintf("NUMBER OF MESSAGES BROADCASTED AS ONE: %d", len(messagesToBroadcast))
+			result := groupMessages(messagesToBroadcast)
+			result.Visitors = len(h.clients)
+			log.Println(fmt.Sprintf("SENDING BROADCAST %d EMOJI TYPES TO %d CLIENTS", len(result.Items), result.Visitors))
 			messagesToBroadcast = messagesToBroadcast[:0]
 			broadcastMutex.Unlock()
 
 			h.mux.Lock()
 			for client := range h.clients {
-				client.send <- message
+				client.send <- result
 			}
 			h.mux.Unlock()
 		}
 	}
+}
+
+func groupMessages(messages []Message) *Messages {
+	result := Messages{Items: []*Message{}}
+
+	for _, msg := range messages {
+		emojiPresent := false
+		for _, val := range result.Items {
+			if msg.Type == val.Type {
+				val.Count, emojiPresent = val.Count + 1, true
+				break
+			}
+		}
+
+		if !emojiPresent {
+			result.Items = append(result.Items, &Message{Type: msg.Type, Count: 1})
+		}
+	}
+	return &result
 }

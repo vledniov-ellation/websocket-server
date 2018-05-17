@@ -1,6 +1,11 @@
 package main
 
 type Message struct {
-	Body string `json:"body"`
-	ClientID int `json:"client_id"`
+	Type string `json:"type"`
+	Count int `json:"count"`
+}
+
+type Messages struct {
+	Items []*Message `json:"emojis"`
+	Visitors int `json:"visitors"`
 }

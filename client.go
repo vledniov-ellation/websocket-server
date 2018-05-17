@@ -14,7 +14,7 @@ const (
 	writeWait = 10 * time.Second
 
 	// Time allowed to read next pong message from peer.
-	pongWait = 10 * time.Second
+	pongWait = 20 * time.Second
 
 	// Sends ping to peer in this interval. Must be less than pongWait.
 	pingPeriod = (pongWait * 9) / 10
@@ -33,7 +33,7 @@ var upgrader = websocket.Upgrader{
 type Client struct {
 	hub  *Hub
 	conn *websocket.Conn
-	send chan string
+	send chan *Messages
 	ID   int
 }
 
@@ -56,8 +56,7 @@ func (c *Client) readPipe() {
 		}
 		var incoming Message
 		json.Unmarshal(message, &incoming)
-		c.ID = incoming.ClientID
-		c.hub.broadcast <- incoming.Body
+		c.hub.broadcast <- &incoming
 	}
 }
 
@@ -72,9 +71,8 @@ func (c *Client) writePipe() {
 	for {
 		select {
 		case message, ok := <-c.send:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				c.conn.WriteMessage(websocket.CloseMessage, nil)
+				c.conn.WriteControl(websocket.CloseMessage, nil, time.Now().Add(writeWait))
 				log.Print("Client sending channel was closed")
 				return
 			}
@@ -108,8 +106,8 @@ func (c *Client) Close() {
 	c.hub.disconnect <- c
 }
 
-func serializeMessage(message string) []byte {
-	jsonMsg, err := json.Marshal(Message{Body: message})
+func serializeMessage(message *Messages) []byte {
+	jsonMsg, err := json.Marshal(message)
 	if err != nil {
 		log.Fatal("Could not marshal message", message)
 	}
@@ -127,7 +125,7 @@ func handleWS(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		log.Print("Error upgrading to websocket "+ err.Error())
 		return
 	}
-	client := &Client{hub: hub, conn: conn, send: make(chan string, messagesCount)}
+	client := &Client{hub: hub, conn: conn, send: make(chan *Messages, messagesCount)}
 	hub.register <-client
 
 	// Client should start reading and writing
