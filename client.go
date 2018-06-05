@@ -115,11 +115,6 @@ func serializeMessage(message *Messages) []byte {
 }
 
 func handleWS(hub *Hub, w http.ResponseWriter, r *http.Request) {
-	//log.Print(
-	//	"UPGRADE ", r.Header.Get("Upgrade"),
-	//	" CONNECTION ", r.Header.Get("Connection"),
-	//	" CLIENT NUMBER ", len(hub.clients)+1,
-	//)
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("Error upgrading to websocket "+ err.Error())
