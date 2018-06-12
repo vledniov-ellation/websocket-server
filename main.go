@@ -6,20 +6,23 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
+	"github.com/crunchyroll/cx-reactions/endpoints"
+	"github.com/crunchyroll/cx-reactions/hub"
 )
 
+// TODO: extract configs CORE-107
 var addr = flag.String("addr", ":8080", "server address")
 
 func main() {
 	flag.Parse()
-	hub := newHub()
-	go hub.run()
-	router := newRouter(hub)
+	emojiHub := hub.NewHub()
+	emojiHub.Start()
+	router := endpoints.NewRouter(emojiHub)
+	// TODO: implement graceful shutdown of the server/app CORE-110
 	server := http.Server{
-		Addr: *addr,
-		Handler: router,
-		ReadTimeout: 10 * time.Second,
+		Addr:         *addr,
+		Handler:      router,
+		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
 
@@ -29,15 +32,4 @@ func main() {
 		log.Fatal("ListenAndServer: ", err)
 	}
 	defer server.Close()
-}
-
-func newRouter(hub *Hub) *mux.Router {
-	router := mux.NewRouter()
-	router.Methods(http.MethodGet).
-		Path("/ws").
-		HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			handleWS(hub, w, r)
-		}).Name("websocket")
-
-	return router
 }
