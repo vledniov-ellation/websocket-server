@@ -1,3 +1,5 @@
 .idea
-websocket-server
+cx-reactions
 vendor/
+config/config.yaml
+.cover/

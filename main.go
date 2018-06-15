@@ -2,34 +2,49 @@ package main
 
 import (
 	"flag"
-	"log"
+	"fmt"
 	"net/http"
-	"time"
 
+	"github.com/crunchyroll/cx-reactions/config"
 	"github.com/crunchyroll/cx-reactions/endpoints"
 	"github.com/crunchyroll/cx-reactions/hub"
+	"github.com/crunchyroll/cx-reactions/logging"
 )
 
-// TODO: extract configs CORE-107
-var addr = flag.String("addr", ":8080", "server address")
+var configFile = flag.String("config", "config/config.yaml", "Config file path")
 
 func main() {
 	flag.Parse()
+	config.InitConfig(*configFile)
+	err := logging.Init(logSettings())
+	if err != nil {
+		panic(fmt.Sprintf("Could not initialize logger: %v", err))
+	}
+
 	emojiHub := hub.NewHub()
 	emojiHub.Start()
 	router := endpoints.NewRouter(emojiHub)
 	// TODO: implement graceful shutdown of the server/app CORE-110
 	server := http.Server{
-		Addr:         *addr,
+		Addr:         config.Listen(),
 		Handler:      router,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  config.ServerReadTimeout(),
+		WriteTimeout: config.ServerWriteTimeout(),
 	}
 
-	log.Print("Listening")
-	err := server.ListenAndServe()
+	logging.Logger.Info("Starting server")
+	err = server.ListenAndServe()
 	if err != nil {
-		log.Fatal("ListenAndServer: ", err)
+		logging.Logger.Fatal("Error starting server: " + err.Error())
 	}
-	defer server.Close()
+}
+
+// LogSettings represent the settings for logger
+func logSettings() logging.Settings {
+	return logging.Settings{
+		Level:         config.LogLevel(),
+		Output:        config.LogOutput(),
+		LogCaller:     config.ShouldLogCaller(),
+		LogStacktrace: config.ShouldLogStacktrace(),
+	}
 }

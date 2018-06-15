@@ -1,0 +1,12 @@
+listen: 0.0.0.0:8080
+name: reactions
+server_read_timeout: 420s
+server_write_timeout: 420s
+
+log:
+  level: debug
+  output:
+    - stdout  # 'stdout' and 'stderr' are special values indicating output should go system stdout or stderr
+    - app.log # show file with line which did logging
+  caller: true
+  stacktrace: false # show stack trace in case of error
