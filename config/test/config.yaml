@@ -10,3 +10,8 @@ log:
     - app.log # show file with line which did logging
   caller: true
   stacktrace: false # show stack trace in case of error
+
+socket:
+  handshake_timeout: 5s
+  read_buffer_size: 2048
+  write_buffer_size: 2048

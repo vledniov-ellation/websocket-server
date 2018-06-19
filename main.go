@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gorilla/websocket"
+
 	"github.com/crunchyroll/cx-reactions/config"
 	"github.com/crunchyroll/cx-reactions/endpoints"
 	"github.com/crunchyroll/cx-reactions/hub"
@@ -20,10 +22,16 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("Could not initialize logger: %v", err))
 	}
+	upgrader := websocket.Upgrader{
+		HandshakeTimeout: config.HandshakeTimeout(),
+		ReadBufferSize:   config.ReadBufferSize(),
+		WriteBufferSize:  config.WriteBufferSize(),
+		CheckOrigin:      func(r *http.Request) bool { return true },
+	}
 
 	emojiHub := hub.NewHub()
 	emojiHub.Start()
-	router := endpoints.NewRouter(emojiHub)
+	router := endpoints.NewRouter(emojiHub, upgrader)
 	// TODO: implement graceful shutdown of the server/app CORE-110
 	server := http.Server{
 		Addr:         config.Listen(),

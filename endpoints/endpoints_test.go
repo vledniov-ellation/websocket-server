@@ -38,7 +38,7 @@ type endpointsSuite struct {
 func (s *endpointsSuite) SetupTest() {
 	logging.Logger = zaptest.NewLogger(s.T())
 	s.hub = &hubMock{}
-	s.router = NewRouter(s.hub)
+	s.router = NewRouter(s.hub, websocket.Upgrader{})
 }
 
 func (s *endpointsSuite) TearDownTest() {

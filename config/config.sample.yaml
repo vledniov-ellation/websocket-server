@@ -10,3 +10,8 @@ log:
     - app.log # show file with line which did logging
   caller: true
   stacktrace: true # show stack trace in case of error
+
+socket: # configs for websocket connections
+  handshake_timeout: 8s # timeout in which the handshake should be made
+  read_buffer_size: 4096 # size of message (in bytes) on read
+  write_buffer_size: 4096 # size of message (in bytes) on write

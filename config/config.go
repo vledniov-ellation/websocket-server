@@ -29,6 +29,10 @@ func setDefaults() {
 	cnfg.SetDefault("log.output", []string{"app.log"})
 	cnfg.SetDefault("log.caller", false)
 	cnfg.SetDefault("log.stacktrace", true)
+
+	cnfg.SetDefault("socket.handshake_timeout", 8*time.Second)
+	cnfg.SetDefault("socket.read_buffer_size", 4096)
+	cnfg.SetDefault("socket.write_buffer_size", 4096)
 }
 
 // Listen returns address service should run on (e.g. localhost:8000)
@@ -64,4 +68,19 @@ func ShouldLogCaller() bool {
 // ShouldLogStacktrace returns whether we should log stacktrace
 func ShouldLogStacktrace() bool {
 	return cnfg.GetBool("log.stacktrace")
+}
+
+// HandshakeTimeout returns timeout in which the handshake should be made for websocket upgrade
+func HandshakeTimeout() time.Duration {
+	return cnfg.GetDuration("socket.handshake_timeout")
+}
+
+// ReadBufferSize returns size of buffer for websocket messages on read
+func ReadBufferSize() int {
+	return cnfg.GetInt("socket.read_buffer_size")
+}
+
+// WriteBufferSize returns size of buffer for websocket messages on write
+func WriteBufferSize() int {
+	return cnfg.GetInt("socket.write_buffer_size")
 }
