@@ -58,8 +58,8 @@ func (c *client) readPipe(stop chan struct{}) {
 			break
 		}
 		var incoming model.Emoji
-		if err = json.Unmarshal(message, &incoming); err == nil {
-			logger.Error("Could not unmrshal message")
+		if err = json.Unmarshal(message, &incoming); err != nil {
+			logger.Error("Could not unmarshal message", zap.Error(err))
 			break
 		}
 		c.hub.RegisterMessage(incoming)
