@@ -35,7 +35,7 @@ func NewRouter(h Hub, upgrader websocket.Upgrader) *mux.Router {
 	router.Methods(http.MethodGet).
 		Path("/_health").
 		HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(200)
+			w.WriteHeader(http.StatusOK)
 		})
 	return router
 }
