@@ -79,6 +79,15 @@ func (s *endpointsSuite) TestStatsEndpoint() {
 	s.JSONEq(expectedResponse, rec.Body.String())
 }
 
+func (s *endpointsSuite) TestHealth() {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/_health", nil)
+
+	s.router.ServeHTTP(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code)
+}
+
 func TestEndpointsSuite(t *testing.T) {
 	suite.Run(t, &endpointsSuite{})
 }
