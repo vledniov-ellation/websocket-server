@@ -40,6 +40,29 @@ func (h *Hub) Start() {
 	go h.broadcastMessages()
 }
 
+// Shutdown gracefully shutdowns the hub
+func (h *Hub) Shutdown() {
+	wg := sync.WaitGroup{}
+	var clients []*client
+
+	h.mux.RLock()
+	for client := range h.clients {
+		clients = append(clients, client)
+	}
+	h.mux.RUnlock()
+
+	wg.Add(len(clients))
+	for _, c := range clients {
+		go func(client *client) {
+			client.Shutdown()
+			wg.Done()
+		}(c)
+	}
+
+	wg.Wait()
+	close(h.broadcast)
+}
+
 // TODO: remove method after logging implemented CORE-109
 func (h *Hub) tick() {
 	ticker := time.NewTicker(5 * time.Second)
@@ -58,7 +81,11 @@ func (h *Hub) broadcastMessages() {
 
 	for {
 		select {
-		case message := <-h.broadcast:
+		case message, ok := <-h.broadcast:
+			if !ok {
+				logging.Logger.Info("Broadcast channel closed, quitting broadcast")
+				return
+			}
 			messagesToBroadcast = append(messagesToBroadcast, message)
 		case <-ticker.C:
 			result := computeEmojiStats(messagesToBroadcast)
@@ -81,9 +108,14 @@ func (h *Hub) broadcastMessages() {
 
 // RegisterConn registers a new connection in the hub
 func (h *Hub) RegisterConn(conn *websocket.Conn) {
-	id := uuid.New()
-	logging.Logger.Debug("Registering client", zap.String("client_id", id.String()))
-	client := &client{hub: h, conn: conn, send: make(chan model.EmojiStats), ID: id.String()}
+	id := uuid.New().String()
+	logging.Logger.Debug("Registering client", zap.String("client_id", id))
+	client := &client{
+		hub:  h,
+		conn: conn,
+		send: make(chan model.EmojiStats),
+		ID:   id,
+	}
 	h.mux.Lock()
 	h.clients[client] = true
 	h.mux.Unlock()

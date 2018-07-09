@@ -2,14 +2,13 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 
-	"github.com/crunchyroll/cx-reactions/config"
-	"github.com/crunchyroll/cx-reactions/endpoints"
-	"github.com/crunchyroll/cx-reactions/hub"
+	"github.com/crunchyroll/cx-reactions/app"
 	"github.com/crunchyroll/cx-reactions/logging"
 )
 
@@ -17,42 +16,14 @@ var configFile = flag.String("config", "config/config.yaml", "Config file path")
 
 func main() {
 	flag.Parse()
-	config.InitConfig(*configFile)
-	err := logging.Init(logSettings())
-	if err != nil {
-		panic(fmt.Sprintf("Could not initialize logger: %v", err))
-	}
-	upgrader := websocket.Upgrader{
-		HandshakeTimeout: config.HandshakeTimeout(),
-		ReadBufferSize:   config.ReadBufferSize(),
-		WriteBufferSize:  config.WriteBufferSize(),
-		CheckOrigin:      func(r *http.Request) bool { return true },
-	}
+	wsApp := app.Init(*configFile)
+	go wsApp.Start()
 
-	emojiHub := hub.NewHub()
-	emojiHub.Start()
-	router := endpoints.NewRouter(emojiHub, upgrader)
-	// TODO: implement graceful shutdown of the server/app CORE-110
-	server := http.Server{
-		Addr:         config.Listen(),
-		Handler:      router,
-		ReadTimeout:  config.ServerReadTimeout(),
-		WriteTimeout: config.ServerWriteTimeout(),
-	}
+	c := make(chan os.Signal)
+	signals := []os.Signal{syscall.SIGINT, syscall.SIGTERM}
+	signal.Notify(c, signals...)
+	sig := <-c
+	logging.Logger.Info("received shutdown signal", zap.String("signal", sig.String()))
 
-	logging.Logger.Info("Starting server")
-	err = server.ListenAndServe()
-	if err != nil {
-		logging.Logger.Fatal("Error starting server: " + err.Error())
-	}
-}
-
-// LogSettings represent the settings for logger
-func logSettings() logging.Settings {
-	return logging.Settings{
-		Level:         config.LogLevel(),
-		Output:        config.LogOutput(),
-		LogCaller:     config.ShouldLogCaller(),
-		LogStacktrace: config.ShouldLogStacktrace(),
-	}
+	wsApp.Shutdown()
 }

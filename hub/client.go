@@ -2,6 +2,7 @@ package hub
 
 import (
 	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -33,22 +34,20 @@ type client struct {
 	hub  core
 	conn *websocket.Conn
 	send chan model.EmojiStats
+	wg   sync.WaitGroup
+	once sync.Once
 	ID   string
 }
 
-func (c *client) readPipe(stop chan struct{}) {
+func (c *client) readPipe() {
 	logger := logging.Logger.With(zap.String("client_id", c.ID))
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 
 	for {
-		select {
-		case <-stop:
-			logger.Debug("Read Pipe stopped from external input")
-			return
-		default:
-		}
 		_, message, err := c.conn.ReadMessage()
+		logger.Debug("Received message from client", zap.ByteString("message", message))
+
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseAbnormalClosure, websocket.CloseGoingAway) {
 				logger.Warn("Unexpected websocket connection lost: " + err.Error())
@@ -66,16 +65,13 @@ func (c *client) readPipe(stop chan struct{}) {
 	}
 }
 
-func (c *client) writePipe(stop chan struct{}) {
+func (c *client) writePipe() {
 	logger := logging.Logger.With(zap.String("client_id", c.ID))
 	ticker := time.NewTicker(pingPeriod)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-stop:
-			logger.Debug("Write Pipe stopped from external input")
-			return
 		case message, ok := <-c.send:
 			if !ok {
 				logger.Warn("Client sending channel was closed")
@@ -100,42 +96,50 @@ func (c *client) writePipe(stop chan struct{}) {
 		case <-ticker.C:
 			logger.Debug("Sending ping")
 			if err := c.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(writeWait)); err != nil {
+				logger.Info("Ping failed", zap.Error(err))
 				return
 			}
 		}
 	}
 }
 
-// Close executes a closing procedure for the client
-func (c *client) Close() {
-	logging.Logger.Debug("Closing client", zap.String("client_id", c.ID))
-	c.hub.DisconnectSubscriber(c)
-	c.conn.WriteControl(websocket.CloseMessage, nil, time.Now().Add(writeWait))
-	c.conn.Close()
-	close(c.send)
+// Shutdown executes a closing procedure for the client
+func (c *client) Shutdown() {
+	logger := logging.Logger.With(zap.String("client_id", c.ID))
+	c.once.Do(func() {
+		logger.Debug("Closing client resources")
+		c.hub.DisconnectSubscriber(c)
+		c.conn.WriteControl(websocket.CloseMessage, nil, time.Now().Add(writeWait))
+		c.conn.Close()
+		close(c.send)
+		logger.Debug("Client closed")
+	})
+	c.wg.Wait()
+	logger.Debug("Client shutdown")
 }
 
 // Run launched the reading and writing pipes through the websocket for the client
 func (c *client) Run() {
 	logger := logging.Logger.With(zap.String("client_id", c.ID))
 	done := make(chan struct{}, 2)
-	stop := make(chan struct{})
+	c.wg.Add(2)
 
 	go func() {
 		logger.Debug("Opening Read Pipe for client")
-		c.readPipe(stop)
+		c.readPipe()
+		logger.Debug("Read Pipe stopped")
+		c.wg.Done()
 		done <- struct{}{}
 	}()
 	go func() {
-		logger.Debug("Opening Wead Pipe for client")
-		c.writePipe(stop)
+		logger.Debug("Opening Write Pipe for client")
+		c.writePipe()
+		logger.Debug("Write Pipe stopped")
+		c.wg.Done()
 		done <- struct{}{}
 	}()
 
 	<-done
-	close(stop)
+	c.Shutdown()
 	<-done
-
-	logger.Debug("Finished running client, closing")
-	c.Close()
 }

@@ -3,3 +3,4 @@ cx-reactions
 vendor/
 config/config.yaml
 .cover/
+*.log

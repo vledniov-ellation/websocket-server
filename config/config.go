@@ -9,8 +9,8 @@ import (
 
 var cnfg = viper.New()
 
-// InitConfig initializes configs
-func InitConfig(configFile string) {
+// Init initializes configs
+func Init(configFile string) {
 	setDefaults()
 
 	cnfg.SetConfigFile(configFile)
@@ -22,6 +22,7 @@ func InitConfig(configFile string) {
 }
 
 func setDefaults() {
+	cnfg.SetDefault("shutdown_timeout", 10*time.Second)
 	cnfg.SetDefault("server_read_timeout", 10*time.Second)
 	cnfg.SetDefault("server_write_timeout", 10*time.Second)
 
@@ -68,6 +69,11 @@ func ShouldLogCaller() bool {
 // ShouldLogStacktrace returns whether we should log stacktrace
 func ShouldLogStacktrace() bool {
 	return cnfg.GetBool("log.stacktrace")
+}
+
+// ShutdownTimeout returns time required for shutting down the service
+func ShutdownTimeout() time.Duration {
+	return cnfg.GetDuration("shutdown_timeout")
 }
 
 // HandshakeTimeout returns timeout in which the handshake should be made for websocket upgrade

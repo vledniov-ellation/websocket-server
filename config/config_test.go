@@ -39,6 +39,10 @@ func TestShouldLogStacktrace(t *testing.T) {
 	assert.False(t, ShouldLogStacktrace())
 }
 
+func TestShutdownTimeout(t *testing.T) {
+	assert.Equal(t, ShutdownTimeout(), 8*time.Second)
+}
+
 func TestHandshakeTimeout(t *testing.T) {
 	assert.Equal(t, HandshakeTimeout(), 5*time.Second)
 }
@@ -56,7 +60,7 @@ func TestSetDefaults(t *testing.T) {
 	cnfg = viper.New()
 	setDefaults()
 	// init global config back
-	defer InitConfig(configPath)
+	defer Init(configPath)
 
 	for _, testCase := range []struct {
 		name     string
@@ -69,6 +73,7 @@ func TestSetDefaults(t *testing.T) {
 		{"LogOutput", LogOutput(), []string{"app.log"}},
 		{"ShouldLogCaller", ShouldLogCaller(), false},
 		{"ShouldLogStacktrace", ShouldLogStacktrace(), true},
+		{"ShutdownTimeout", ShutdownTimeout(), 10 * time.Second},
 		{"HandshakeTimeout", HandshakeTimeout(), 8 * time.Second},
 		{"ReadBufferSize", ReadBufferSize(), 4096},
 		{"WriteBufferSize", WriteBufferSize(), 4096},
@@ -80,6 +85,6 @@ func TestSetDefaults(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	InitConfig(configPath)
+	Init(configPath)
 	os.Exit(m.Run())
 }

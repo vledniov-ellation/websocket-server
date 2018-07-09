@@ -1,5 +1,6 @@
 listen: 0.0.0.0:8080
 name: reactions
+shutdown_timeout: 8s
 server_read_timeout: 420s
 server_write_timeout: 420s
 
